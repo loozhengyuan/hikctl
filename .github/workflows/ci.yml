@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  test-golang:
+    name: Test on Go ${{ matrix.go }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 3
+    strategy:
+      matrix:
+        os:
+          - windows-latest
+          - macos-latest
+          - ubuntu-latest
+        go:
+          # - 1.12
+          - 1.13
+          - 1.14
+
+    steps:
+    - name: Checkout branch
+      uses: actions/checkout@v2
+
+    - name: Set up Go ${{ matrix.go }}
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v2
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Lint code
+      # Gofmt will have different results on Windows due to line endings.
+      if: ${{ matrix.os != 'windows-latest' }}
+      run: |
+        make lint
+
+    - name: Validate code
+      run: |
+        make vet
+
+    - name: Run tests
+      run: |
+        make test
